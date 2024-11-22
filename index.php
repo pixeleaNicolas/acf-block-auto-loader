@@ -285,12 +285,20 @@ class AcfBlockAutoLoader {
     }
 
     public function __construct() {
-        // Ajouter les filtres pour la gestion des JSON ACF
-        add_filter('acf/settings/save_json', array($this, 'setJsonSavePath'));
-        add_filter('acf/settings/load_json', array($this, 'addJsonLoadPath'));
+        // Déplacer les filtres avant l'initialisation d'ACF
+        add_action('init', array($this, 'initializeJsonHandling'), 1);
         
         // Ajouter une action pour la sauvegarde des groupes de champs
         add_action('acf/update_field_group', array($this, 'onFieldGroupUpdate'));
+        
+        // Ajouter l'action pour importer les champs automatiquement
+        add_action('admin_init', array($this, 'importJsonFields'));
+    }
+
+    public function initializeJsonHandling() {
+        // Ajouter les filtres pour la gestion des JSON ACF
+        add_filter('acf/settings/save_json', array($this, 'setJsonSavePath'));
+        add_filter('acf/settings/load_json', array($this, 'addJsonLoadPath'));
     }
 
     /**
@@ -308,6 +316,12 @@ class AcfBlockAutoLoader {
             if ($this->debug) {
                 error_log('ACF Block Auto-Loader: Group is for block, using path: ' . $new_path);
             }
+            
+            // Créer le dossier s'il n'existe pas
+            if (!is_dir($new_path)) {
+                mkdir($new_path, 0755, true);
+            }
+            
             return $new_path;
         }
 
@@ -420,18 +434,25 @@ class AcfBlockAutoLoader {
         return false;
     }
 
-    /**
-     * Ajoute le chemin de chargement des fichiers JSON
-     */
     public function addJsonLoadPath($paths) {
         $json_path = $this->getPluginPath() . $this->json_directory;
+        
+        if ($this->debug) {
+            error_log('ACF Block Auto-Loader: Adding JSON load path: ' . $json_path);
+        }
         
         // Créer le dossier s'il n'existe pas
         if (!is_dir($json_path)) {
             mkdir($json_path, 0755, true);
         }
         
-        $paths[] = $json_path;
+        // S'assurer que le chemin n'est pas déjà dans le tableau
+        if (!in_array($json_path, $paths)) {
+            $paths[] = $json_path;
+        }
+        
+        error_log('ACF Block Auto-Loader: Current JSON paths: ' . print_r($paths, true));
+        
         return $paths;
     }
 
@@ -444,6 +465,7 @@ class AcfBlockAutoLoader {
             error_log('ACF Block Auto-Loader: Field group data: ' . print_r($field_group, true));
         }
 
+        // Vérifie si le groupe est lié à un bloc
         if ($this->isFieldGroupForBlockFromLocation($field_group['location'])) {
             $json_path = $this->getPluginPath() . 'block-json';
             
@@ -458,13 +480,9 @@ class AcfBlockAutoLoader {
                 }
             }
 
-            // Vérifier les permissions d'écriture
-            if (!is_writable($json_path)) {
-                if ($this->debug) {
-                    error_log('ACF Block Auto-Loader: JSON directory is not writable: ' . $json_path);
-                }
-                chmod($json_path, 0755);
-            }
+            // Récupérer tous les champs du groupe
+            $fields = acf_get_fields($field_group);
+            $field_group['fields'] = $fields;
             
             // Construire le chemin complet du fichier
             $file_path = $json_path . '/' . $field_group['key'] . '.json';
@@ -476,18 +494,14 @@ class AcfBlockAutoLoader {
             $result = file_put_contents($file_path, $json);
             
             if ($this->debug) {
-                error_log('ACF Block Auto-Loader: Saving to file: ' . $file_path);
-                error_log('ACF Block Auto-Loader: Save result: ' . ($result !== false ? 'success' : 'failed'));
-            }
-        } else {
-            if ($this->debug) {
-                error_log('ACF Block Auto-Loader: Field group not associated with plugin block');
+                error_log('ACF Block Auto-Loader: Saved field group to: ' . $file_path);
+                error_log('ACF Block Auto-Loader: Fields saved: ' . print_r($fields, true));
             }
         }
     }
 
     /**
-     * Vérifie si le groupe est lié à un bloc du plugin à partir des règles de localisation
+     * Vérifie si le groupe est lié à un bloc à partir des règles de localisation
      */
     private function isFieldGroupForBlockFromLocation($location) {
         if (!is_array($location)) {
@@ -508,6 +522,49 @@ class AcfBlockAutoLoader {
         }
 
         return false;
+    }
+
+    // Nouvelle méthode pour importer les champs
+    public function importJsonFields() {
+        // Vérifier si ACF PRO est actif
+        if (!function_exists('acf_get_field_groups')) {
+            return;
+        }
+
+        $json_path = $this->getPluginPath() . $this->json_directory;
+        
+        if ($this->debug) {
+            error_log('ACF Block Auto-Loader: Checking for JSON files in: ' . $json_path);
+        }
+
+        // Scanner le répertoire pour les fichiers JSON
+        if (is_dir($json_path)) {
+            $json_files = glob($json_path . '/*.json');
+            
+            if ($this->debug) {
+                error_log('ACF Block Auto-Loader: Found JSON files: ' . print_r($json_files, true));
+            }
+
+            foreach ($json_files as $json_file) {
+                $json_content = json_decode(file_get_contents($json_file), true);
+                
+                if (!$json_content || !isset($json_content['key'])) {
+                    continue;
+                }
+
+                // Vérifier si le groupe existe déjà
+                $existing_group = acf_get_field_group($json_content['key']);
+                
+                if (!$existing_group) {
+                    if ($this->debug) {
+                        error_log('ACF Block Auto-Loader: Importing field group: ' . $json_content['title']);
+                    }
+                    
+                    // Importer le groupe de champs
+                    acf_import_field_group($json_content);
+                }
+            }
+        }
     }
 }
 

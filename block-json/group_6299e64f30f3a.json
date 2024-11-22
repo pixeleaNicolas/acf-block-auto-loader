@@ -1,0 +1,55 @@
+{
+    "ID": 64,
+    "key": "group_6299e64f30f3a",
+    "title": "-- bloc 2024 -- shortcode preview",
+    "fields": [
+        {
+            "ID": 65,
+            "key": "field_6299e658904c6",
+            "label": "shortcode",
+            "name": "shortcode",
+            "aria-label": "",
+            "prefix": "acf",
+            "type": "text",
+            "value": null,
+            "menu_order": 0,
+            "instructions": "",
+            "required": 0,
+            "id": "",
+            "class": "",
+            "conditional_logic": 0,
+            "parent": 64,
+            "wrapper": {
+                "width": "",
+                "class": "",
+                "id": ""
+            },
+            "default_value": "",
+            "placeholder": "",
+            "prepend": "",
+            "append": "",
+            "maxlength": "",
+            "_name": "shortcode",
+            "_valid": 1
+        }
+    ],
+    "location": [
+        [
+            {
+                "param": "block",
+                "operator": "==",
+                "value": "acf\/ng1-shortcode-preview"
+            }
+        ]
+    ],
+    "menu_order": 0,
+    "position": "normal",
+    "style": "default",
+    "label_placement": "top",
+    "instruction_placement": "label",
+    "hide_on_screen": "",
+    "active": true,
+    "description": "",
+    "show_in_rest": 0,
+    "_valid": true
+}

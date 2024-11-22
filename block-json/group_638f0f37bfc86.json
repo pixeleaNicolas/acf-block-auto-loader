@@ -1,0 +1,61 @@
+{
+    "ID": 54,
+    "key": "group_638f0f37bfc86",
+    "title": "-- block 2024 -- Module",
+    "fields": [
+        {
+            "ID": 55,
+            "key": "field_638f0f39f7acd",
+            "label": "Module",
+            "name": "module_id",
+            "aria-label": "",
+            "prefix": "acf",
+            "type": "post_object",
+            "value": null,
+            "menu_order": 0,
+            "instructions": "Pour modifier le contenu du module aller sur <a href=\"\/wp-admin\/edit.php?post_type=module\">Liste des modules<\/a>",
+            "required": 0,
+            "id": "",
+            "class": "",
+            "conditional_logic": 0,
+            "parent": 54,
+            "wrapper": {
+                "width": "",
+                "class": "",
+                "id": ""
+            },
+            "post_type": [
+                "module"
+            ],
+            "post_status": "",
+            "taxonomy": "",
+            "return_format": "id",
+            "multiple": 0,
+            "allow_null": 0,
+            "bidirectional": 0,
+            "ui": 1,
+            "bidirectional_target": [],
+            "_name": "module_id",
+            "_valid": 1
+        }
+    ],
+    "location": [
+        [
+            {
+                "param": "block",
+                "operator": "==",
+                "value": "acf\/ng1-load-module"
+            }
+        ]
+    ],
+    "menu_order": 0,
+    "position": "normal",
+    "style": "default",
+    "label_placement": "top",
+    "instruction_placement": "label",
+    "hide_on_screen": "",
+    "active": true,
+    "description": "",
+    "show_in_rest": 0,
+    "_valid": true
+}
