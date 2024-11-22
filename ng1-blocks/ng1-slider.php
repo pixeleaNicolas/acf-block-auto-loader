@@ -1,7 +1,7 @@
 <?php
 /**
 * name : ng1-slider
-* title : Ng1 Slider 2023
+* title : Ng1 Slider 2024
 * align : wide
 * description : Slider
 * category : ng1-blocks

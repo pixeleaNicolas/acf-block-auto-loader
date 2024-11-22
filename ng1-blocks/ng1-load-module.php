@@ -1,7 +1,7 @@
 <?php
 /**
 * name : ng1-load-module
-* title : Ng1 module 2022
+* title : Ng1 module 2024
 * align : wide
 * description :charge un module NG1
 * category : ng1-blocks

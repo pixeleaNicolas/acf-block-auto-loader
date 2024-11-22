@@ -1,7 +1,7 @@
 <?php
 /**
 * name : ng1-picto-text
-* title : Ng1 Picto Texte 2022
+* title : Ng1 Picto Texte 2024
 * align : wide
 * description : Picto et texte
 * category : ng1-blocks
