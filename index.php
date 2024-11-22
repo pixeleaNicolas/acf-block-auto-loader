@@ -29,6 +29,9 @@ class AcfBlockAutoLoader {
         )
     );
 
+    // Ajout de la propriété pour le dossier JSON
+    private $json_directory = 'block-json';
+
     public static function getInstance() {
         if (self::$instance === null) {
             self::$instance = new self();
@@ -279,6 +282,232 @@ class AcfBlockAutoLoader {
         }
         
         return $return;
+    }
+
+    public function __construct() {
+        // Ajouter les filtres pour la gestion des JSON ACF
+        add_filter('acf/settings/save_json', array($this, 'setJsonSavePath'));
+        add_filter('acf/settings/load_json', array($this, 'addJsonLoadPath'));
+        
+        // Ajouter une action pour la sauvegarde des groupes de champs
+        add_action('acf/update_field_group', array($this, 'onFieldGroupUpdate'));
+    }
+
+    /**
+     * Définit le chemin de sauvegarde des fichiers JSON
+     */
+    public function setJsonSavePath($path) {
+        if ($this->debug) {
+            error_log('ACF Block Auto-Loader: Checking JSON save path');
+            error_log('ACF Block Auto-Loader: Default path: ' . $path);
+        }
+
+        // Vérifie si le groupe de champs est lié à un bloc
+        if ($this->isFieldGroupForBlock()) {
+            $new_path = $this->getPluginPath() . $this->json_directory;
+            if ($this->debug) {
+                error_log('ACF Block Auto-Loader: Group is for block, using path: ' . $new_path);
+            }
+            return $new_path;
+        }
+
+        if ($this->debug) {
+            error_log('ACF Block Auto-Loader: Group is not for block, using default path');
+        }
+        return $path;
+    }
+
+    /**
+     * Vérifie si le groupe de champs est associé à un bloc
+     */
+    private function isFieldGroupForBlock() {
+        // Récupère le groupe de champs en cours d'édition
+        $screen = get_current_screen();
+        if ($this->debug) {
+            error_log('ACF Block Auto-Loader: Current screen: ' . ($screen ? $screen->base : 'null'));
+        }
+
+        if (!$screen || $screen->base !== 'acf-field-group') {
+            if ($this->debug) {
+                error_log('ACF Block Auto-Loader: Not on field group edit screen');
+            }
+            return false;
+        }
+
+        // Récupère l'ID du groupe de champs
+        $field_group_id = isset($_GET['post']) ? $_GET['post'] : false;
+        if ($this->debug) {
+            error_log('ACF Block Auto-Loader: Field group ID: ' . ($field_group_id ? $field_group_id : 'not found'));
+        }
+
+        if (!$field_group_id) {
+            return false;
+        }
+
+        // Récupère les règles de localisation du groupe
+        $field_group = acf_get_field_group($field_group_id);
+        if ($this->debug) {
+            error_log('ACF Block Auto-Loader: Field group data: ' . print_r($field_group, true));
+        }
+
+        if (!$field_group || !isset($field_group['location'])) {
+            if ($this->debug) {
+                error_log('ACF Block Auto-Loader: No location rules found');
+            }
+            return false;
+        }
+
+        // Vérifie si le groupe est associé à un bloc
+        foreach ($field_group['location'] as $location_group) {
+            foreach ($location_group as $location_rule) {
+                if ($this->debug) {
+                    error_log('ACF Block Auto-Loader: Checking rule: ' . print_r($location_rule, true));
+                }
+
+                if ($location_rule['param'] === 'block') {
+                    $is_plugin_block = $this->isBlockFromPlugin($location_rule['value']);
+                    if ($this->debug) {
+                        error_log('ACF Block Auto-Loader: Found block rule. Is plugin block? ' . ($is_plugin_block ? 'yes' : 'no'));
+                    }
+
+                    if ($is_plugin_block) {
+                        return true;
+                    }
+                }
+            }
+        }
+
+        if ($this->debug) {
+            error_log('ACF Block Auto-Loader: No matching block rules found');
+        }
+        return false;
+    }
+
+    /**
+     * Vérifie si le bloc appartient au plugin
+     */
+    private function isBlockFromPlugin($block_name) {
+        if ($this->debug) {
+            error_log('ACF Block Auto-Loader: Checking if block belongs to plugin: ' . $block_name);
+        }
+
+        // Enlever le préfixe 'acf/' du nom du bloc si présent
+        $block_name = str_replace('acf/', '', $block_name);
+        
+        if ($this->debug) {
+            error_log('ACF Block Auto-Loader: Normalized block name: ' . $block_name);
+        }
+
+        $available_blocks = $this->checkBlocksFolder();
+        foreach ($available_blocks as $block) {
+            if ($this->debug) {
+                error_log('ACF Block Auto-Loader: Comparing with block: ' . ($block['attr']['name'] ?? 'unnamed'));
+            }
+
+            if (isset($block['attr']['name']) && 
+                $block['attr']['name'] === $block_name && 
+                $block['source'] === 'plugin') {
+                if ($this->debug) {
+                    error_log('ACF Block Auto-Loader: Found matching plugin block');
+                }
+                return true;
+            }
+        }
+
+        if ($this->debug) {
+            error_log('ACF Block Auto-Loader: Block not found in plugin blocks');
+        }
+        return false;
+    }
+
+    /**
+     * Ajoute le chemin de chargement des fichiers JSON
+     */
+    public function addJsonLoadPath($paths) {
+        $json_path = $this->getPluginPath() . $this->json_directory;
+        
+        // Créer le dossier s'il n'existe pas
+        if (!is_dir($json_path)) {
+            mkdir($json_path, 0755, true);
+        }
+        
+        $paths[] = $json_path;
+        return $paths;
+    }
+
+    /**
+     * Gère la sauvegarde des groupes de champs
+     */
+    public function onFieldGroupUpdate($field_group) {
+        if ($this->debug) {
+            error_log('ACF Block Auto-Loader: Field group update detected');
+            error_log('ACF Block Auto-Loader: Field group data: ' . print_r($field_group, true));
+        }
+
+        if ($this->isFieldGroupForBlockFromLocation($field_group['location'])) {
+            $json_path = $this->getPluginPath() . 'block-json';
+            
+            // Créer le dossier s'il n'existe pas
+            if (!is_dir($json_path)) {
+                if ($this->debug) {
+                    error_log('ACF Block Auto-Loader: Creating JSON directory: ' . $json_path);
+                }
+                if (!mkdir($json_path, 0755, true)) {
+                    error_log('ACF Block Auto-Loader: Failed to create JSON directory');
+                    return;
+                }
+            }
+
+            // Vérifier les permissions d'écriture
+            if (!is_writable($json_path)) {
+                if ($this->debug) {
+                    error_log('ACF Block Auto-Loader: JSON directory is not writable: ' . $json_path);
+                }
+                chmod($json_path, 0755);
+            }
+            
+            // Construire le chemin complet du fichier
+            $file_path = $json_path . '/' . $field_group['key'] . '.json';
+            
+            // Encoder les données en JSON
+            $json = acf_json_encode($field_group);
+            
+            // Écrire le fichier
+            $result = file_put_contents($file_path, $json);
+            
+            if ($this->debug) {
+                error_log('ACF Block Auto-Loader: Saving to file: ' . $file_path);
+                error_log('ACF Block Auto-Loader: Save result: ' . ($result !== false ? 'success' : 'failed'));
+            }
+        } else {
+            if ($this->debug) {
+                error_log('ACF Block Auto-Loader: Field group not associated with plugin block');
+            }
+        }
+    }
+
+    /**
+     * Vérifie si le groupe est lié à un bloc du plugin à partir des règles de localisation
+     */
+    private function isFieldGroupForBlockFromLocation($location) {
+        if (!is_array($location)) {
+            return false;
+        }
+
+        foreach ($location as $location_group) {
+            foreach ($location_group as $location_rule) {
+                if ($this->debug) {
+                    error_log('ACF Block Auto-Loader: Checking location rule: ' . print_r($location_rule, true));
+                }
+
+                if ($location_rule['param'] === 'block' && 
+                    $this->isBlockFromPlugin($location_rule['value'])) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 }
 
